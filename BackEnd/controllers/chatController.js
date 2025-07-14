@@ -10,29 +10,31 @@ const askAI = async (req, res) => {
     const context =
       faqs.length > 0
         ? faqs.map((f) => `Q: ${f.question}\nA: ${f.answer}`).join("\n")
-        : "You are a helpful assistant that answers support questions for users.";
+        : "You are a helpful assistant that answers support questions.";
 
-    const geminiPrompt = `${context}\n\nUser: ${message}\nAI:`;
+    const prompt = `${context}\n\nUser: ${message}\nAI:`;
 
+    // ✅ PASS the key in the URL (NOT as Bearer)
     const response = await axios.post(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         contents: [
           {
-            parts: [{ text: geminiPrompt }],
+            parts: [{ text: prompt }],
           },
         ],
       },
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
+          // ❌ DO NOT pass Authorization header for Gemini API key
+          // Authorization: `Bearer ${process.env.GEMINI_API_KEY}` ❌❌❌
         },
       }
     );
 
     const aiReply =
-      response.data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
       "❌ Gemini did not return a proper reply.";
 
     await new Chat({ userMessage: message, aiResponse: aiReply }).save();
@@ -40,7 +42,7 @@ const askAI = async (req, res) => {
     res.json({ reply: aiReply });
   } catch (err) {
     console.error("❌ Gemini API Error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Gemini API failed." });
+    res.status(500).json({ error: "Gemini API call failed." });
   }
 };
 
